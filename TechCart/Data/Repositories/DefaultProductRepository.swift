@@ -10,20 +10,31 @@ import Foundation
 final class DefaultProductRepository: ProductRepository {
     
     private let remoteDataSource: ProductRemoteDataSourceProtocol
+    private let localDataSource: ProductLocalDataSourceProtocol
     private let mapper: ProductMapper
     
     
-    init(remoteDataSource: ProductRemoteDataSourceProtocol, mapper: ProductMapper) {
+    init(remoteDataSource: ProductRemoteDataSourceProtocol, localDataSource: ProductLocalDataSourceProtocol, mapper: ProductMapper) {
         self.remoteDataSource = remoteDataSource
+        self.localDataSource = localDataSource
         self.mapper = mapper
     }
     
     func getProducts(limit: Int, skip: Int) async throws -> [Product] {
         
-        let response = try await remoteDataSource.fetchProducts(limit: limit, skip: skip)
-        
-        return response.products.map{
-            mapper.map($0)
+        do {
+            
+            let response = try await remoteDataSource.fetchProducts(limit: limit, skip: skip)
+            
+            let products = response.products.map {
+                mapper.map($0)
+            }
+            
+            try localDataSource.saveProducts(products)
+            return products
+        } catch {
+            
+            return try localDataSource.fetchProducts()
         }
     }
     
@@ -31,16 +42,35 @@ final class DefaultProductRepository: ProductRepository {
         
         let dto = try await remoteDataSource.fetchProduct(id: id)
         
-        return mapper.map(dto)
+        let product = mapper.map(dto)
+        
+        try localDataSource.saveProducts([product])
+        return product
     }
     
     
     func searchProducts(query: String) async throws -> [Product] {
-        let response =  try await remoteDataSource.searchProducts(query: query)
-        
-        return response.products.map{
-            mapper.map($0)
+       
+        do {
+            let response =  try await remoteDataSource.searchProducts(query: query)
+            
+            let products = response.products.map {
+                mapper.map($0)
+            }
+            
+            try localDataSource.saveProducts(products)
+            
+            return products
+        } catch {
+            
+            let cachedProducts = try localDataSource.fetchProducts()
+            
+            return cachedProducts.filter {
+                $0.title.localizedStandardContains(query)
+            }
+            
         }
+        
     }
     
 }
