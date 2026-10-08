@@ -9,89 +9,130 @@ import CoreData
 
 protocol ProductLocalDataSourceProtocol {
     
-    func saveProducts(_ products: [Product]) throws
+    func saveProducts(_ products: [Product]) async throws
     
-    func fetchProducts() throws -> [Product]
+    func fetchProducts(limit: Int?, offset: Int) async throws -> [Product]
     
-    func deleteAllProducts()  throws
+    func deleteAllProducts() async throws
     
 }
 
 final class ProductLocalDataSource: ProductLocalDataSourceProtocol {
     
-    private let context: NSManagedObjectContext
+    private let coreDataStack: CoreDataStack
     
-    init(context: NSManagedObjectContext) {
-        self.context = context
+    init(coreDataStack: CoreDataStack) {
+        self.coreDataStack = coreDataStack
     }
     
-    func saveProducts(_ products: [Product]) throws {
-        for product in products {
-            
-            
+    func saveProducts(_ products: [Product]) async throws {
+
+        let context = coreDataStack.newBackgroundContext()
+        
+        try await context.perform {
+            for product in products {
+                
+                
+                let request = ProductEntity.fetchRequest()
+                
+                request.predicate = NSPredicate(format: "id == %d", product.id)
+                
+                let existingProduct = try context.fetch(request).first
+                
+                let entity = existingProduct ?? ProductEntity(context: context)
+                
+                entity.id = Int64(product.id)
+                entity.title = product.title
+                entity.productDescription = product.description
+                entity.price = product.price
+                entity.discountPercentage = product.discountPercentage
+                entity.rating = product.rating
+                entity.stock = Int64(product.stock)
+                entity.brand = product.brand
+                entity.category = product.category
+                entity.thumbnail = product.thumbnail?.absoluteString ?? ""
+                entity.images = product.images.map {
+                    $0.absoluteString
+                }
+                
+            }
+            if context.hasChanges {
+                try context.save()
+            }
+        }
+        
+      
+        
+    }
+    
+    
+    func fetchProducts(limit: Int?, offset: Int) async throws -> [Product] {
+        
+        let context = coreDataStack.newBackgroundContext()
+        
+        return try await context.perform {
             let request = ProductEntity.fetchRequest()
             
-            request.predicate = NSPredicate(format: "id == %d", product.id)
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "id", ascending: true)
+            ]
             
-            let existingProduct = try context.fetch(request).first
+            request.fetchOffset = offset
             
-            let entity = existingProduct ?? ProductEntity(context: context)
-            
-            entity.id = Int64(product.id)
-            entity.title = product.title
-            entity.productDescription = product.description
-            entity.price = product.price
-            entity.discountPercentage = product.discountPercentage
-            entity.rating = product.rating
-            entity.stock = Int64(product.stock)
-            entity.brand = product.brand
-            entity.category = product.category
-            entity.thumbnail = product.thumbnail?.absoluteString ?? ""
-            entity.images = product.images.map {
-                $0.absoluteString
+            if let limit = limit {
+                
+                request.fetchLimit = limit
             }
             
-        }
-        
-        try context.save()
-    }
-    
-    
-    func fetchProducts() throws -> [Product] {
-        let request = ProductEntity.fetchRequest()
-        
-        request.sortDescriptors = [
-            NSSortDescriptor(key: "id", ascending: true)
-        ]
-        
-        let entities =  try context.fetch(request)
-        
-        return entities.map {
-            mapToDomain($0)
+            let entities =  try context.fetch(request)
+            
+            return entities.map {
+                self.mapToDomain($0)
+            }
         }
     }
     
     
-    func deleteAllProducts() throws {
-        let request = ProductEntity.fetchRequest()
+    func deleteAllProducts() async throws {
         
+        let context = coreDataStack.newBackgroundContext()
         
-        let entities =  try context.fetch(request)
-        
-        for entity in entities {
-            context.delete(entity)
+        try await context.perform {
+            let request = ProductEntity.fetchRequest()
+            
+            
+            let entities =  try context.fetch(request)
+            
+            for entity in entities {
+                context.delete(entity)
+            }
+            
+            if context.hasChanges {
+                try context.save()
+            }
         }
-        
-        try context.save()
+       
     }
     
     
     
     private func mapToDomain(_ entity: ProductEntity) -> Product {
         
-        Product(id: Int(entity.id), title: entity.title, description: entity.productDescription, price: entity.price, discountPercentage: entity.discountPercentage, rating: entity.rating, stock: Int(entity.stock), brand: entity.brand, category: entity.category, thumbnail: URL(string: entity.thumbnail), images: entity.images.compactMap{
-            URL(string: $0)
-        })
+        Product(
+            id: Int(entity.id),
+            title: entity.title,
+            description: entity.productDescription,
+            price: entity.price,
+            discountPercentage: entity.discountPercentage,
+            rating: entity.rating,
+            stock: Int(entity.stock),
+            brand: entity.brand,
+            category: entity.category,
+            thumbnail: URL(string: entity.thumbnail),
+            images: entity.images.compactMap{
+                URL(string: $0)
+            }
+        )
 
 
     }

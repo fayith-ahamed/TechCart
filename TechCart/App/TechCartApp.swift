@@ -13,7 +13,11 @@ struct TechCartApp: App {
     private let container = DependencyContainer()
     var body: some Scene {
         WindowGroup {
-            ProductListView(viewModel: container.makeProductListViewModel())
+           
+            ProductListView(
+                viewModel: container.makeProductListViewModel(),
+                imageCache: container.imageCache
+            )
         }
     }
 }

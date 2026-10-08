@@ -11,8 +11,11 @@ struct ProductListView: View {
     
     @State private var viewModel: ProductListViewModel
     
-    init(viewModel: ProductListViewModel) {
+    private let imageCache: ImageCache
+    
+    init(viewModel: ProductListViewModel, imageCache: ImageCache) {
         _viewModel = State(initialValue: viewModel)
+        self.imageCache = imageCache
     }
     
     var body: some View {
@@ -25,7 +28,7 @@ struct ProductListView: View {
                     ProgressView("Loading Products...")
                     
                 }
-                else if let error = viewModel.errorMessage {
+                else if let error = viewModel.errorMessage, viewModel.products.isEmpty {
                     
                     VStack(spacing: 12) {
                         
@@ -38,7 +41,7 @@ struct ProductListView: View {
                         Button("Retry") {
                             
                             Task {
-                                await viewModel.loadProducts()
+                                await viewModel.loadInitialProducts()
                             }
                         }
                         
@@ -46,25 +49,57 @@ struct ProductListView: View {
                     .padding()
                 }
                 else {
+                    productList
                     
-                    List(viewModel.products) { product in
-                        
-                        ProductRowView(product: product)
-                        
-                    }
-                    .listStyle(.plain)
                 }
                 
             }
             .navigationTitle("TechCart")
         }
         .task {
-            await viewModel.loadProducts()
+            await viewModel.loadInitialProducts()
         }
         
     }
     
-    
+    private var productList: some View {
+        
+        List {
+            
+            ForEach(viewModel.products) { product in
+                
+                
+                ProductRowView(
+                    product: product,
+                    imageCache: imageCache
+                )
+                .onAppear {
+                    
+                    if product.id == viewModel.products.last?.id {
+                        
+                        Task {
+                            await viewModel.loadMoreProducts()
+                        }
+                    }
+                    
+                }
+                
+                
+            }
+            if viewModel.isLoadingMore {
+                
+                HStack {
+                    Spacer()
+                    
+                    ProgressView()
+                    
+                    Spacer()
+                }
+                .listRowSeparator(.hidden)
+            }
+        }
+        .listStyle(.plain)
+    }
     
     
     

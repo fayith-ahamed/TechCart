@@ -30,11 +30,11 @@ final class DefaultProductRepository: ProductRepository {
                 mapper.map($0)
             }
             
-            try localDataSource.saveProducts(products)
+            try await localDataSource.saveProducts(products)
             return products
         } catch {
             
-            return try localDataSource.fetchProducts()
+            return try await localDataSource.fetchProducts(limit: limit, offset: skip)
         }
     }
     
@@ -44,7 +44,7 @@ final class DefaultProductRepository: ProductRepository {
         
         let product = mapper.map(dto)
         
-        try localDataSource.saveProducts([product])
+        try await localDataSource.saveProducts([product])
         return product
     }
     
@@ -58,12 +58,12 @@ final class DefaultProductRepository: ProductRepository {
                 mapper.map($0)
             }
             
-            try localDataSource.saveProducts(products)
+            try await localDataSource.saveProducts(products)
             
             return products
         } catch {
             
-            let cachedProducts = try localDataSource.fetchProducts()
+            let cachedProducts = try await localDataSource.fetchProducts(limit: nil, offset: 0)
             
             return cachedProducts.filter {
                 $0.title.localizedStandardContains(query)

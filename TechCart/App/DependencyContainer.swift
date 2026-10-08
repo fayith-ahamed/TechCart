@@ -9,6 +9,8 @@ import Foundation
 
 final class DependencyContainer {
     
+    let imageCache = ImageCache()
+    
     private let apiClient: APIClientProtocol
     private let productRemoteDataSource: ProductRemoteDataSourceProtocol
     private let productLocalDataSource: ProductLocalDataSourceProtocol
@@ -22,7 +24,7 @@ final class DependencyContainer {
         
         let remoteDataSource = ProductRemoteDataSource(apiClient: apiClient)
         
-        let localDataSource = ProductLocalDataSource(context: coreDataStack.viewContext)
+        let localDataSource = ProductLocalDataSource(coreDataStack: coreDataStack)
         
         
         let repository = DefaultProductRepository(remoteDataSource: remoteDataSource, localDataSource: localDataSource, mapper: ProductMapper())

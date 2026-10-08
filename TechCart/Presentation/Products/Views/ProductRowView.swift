@@ -10,21 +10,15 @@ import SwiftUI
 struct ProductRowView: View {
     
     let product: Product
+    let imageCache: ImageCache
     
     var body: some View {
         
         HStack(spacing: 12) {
             
-            AsyncImage(url: product.thumbnail) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-                
-            } placeholder: {
-                ProgressView()
-            }
-            .frame(width: 100, height: 100)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            CachedAsyncImage(url: product.thumbnail, cache: imageCache)
+                .frame(width: 100, height: 100)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             
             
             VStack(alignment: .leading, spacing: 8) {
@@ -44,6 +38,7 @@ struct ProductRowView: View {
                 Text(product.price, format: .currency(code: "USD"))
                     .font(.headline)
                 
+                
                 HStack(alignment: .center) {
                     
                     Image(systemName: "star.fill")
@@ -53,11 +48,11 @@ struct ProductRowView: View {
                 .font(.caption)
                 .foregroundStyle(.orange)
                 
+                
             }
             
             
-            Spacer()
-            
+            Spacer(minLength: 0)
             
             
         }
